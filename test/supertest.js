@@ -12,6 +12,11 @@ const nock = require('nock');
 
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
+function shouldIncludeStackWithThisFile(err) {
+  err.stack.should.match(/test\/supertest.js:/);
+  err.stack.should.startWith(err.name + ':');
+}
+
 describe('request(url)', function () {
   it('should be supported', function (done) {
     const app = express();
@@ -359,6 +364,7 @@ describe('request(app)', function () {
         .expect(404)
         .end(function (err, res) {
           err.message.should.equal('expected 404 "Not Found", got 200 "OK"');
+          shouldIncludeStackWithThisFile(err);
           done();
         });
     });
@@ -393,6 +399,38 @@ describe('request(app)', function () {
     });
   });
 
+  describe('.expect(statusArray)', function () {
+    it('should assert only status', function (done) {
+      const app = express();
+
+      app.get('/', function (req, res) {
+        res.send('hey');
+      });
+
+      request(app)
+        .get('/')
+        .expect([200, 404])
+        .end(done);
+    });
+
+    it('should reject if status is not in valid statuses array', function (done) {
+      const app = express();
+
+      app.get('/', function (req, res) {
+        res.send('hey');
+      });
+
+      request(app)
+        .get('/')
+        .expect([500, 404])
+        .end(function (err, res) {
+          err.message.should.equal('expected one of "500, 404", got 200 "OK"');
+          shouldIncludeStackWithThisFile(err);
+          done();
+        });
+    });
+  });
+
   describe('.expect(status, body[, fn])', function () {
     it('should assert the response body and status', function (done) {
       const app = express();
@@ -419,6 +457,7 @@ describe('request(app)', function () {
           .expect(200, '')
           .end(function (err, res) {
             err.message.should.equal('expected \'\' response body, got \'foo\'');
+            shouldIncludeStackWithThisFile(err);
             done();
           });
       });
@@ -440,6 +479,7 @@ describe('request(app)', function () {
         .expect('hey')
         .end(function (err, res) {
           err.message.should.equal('expected \'hey\' response body, got \'{"foo":"bar"}\'');
+          shouldIncludeStackWithThisFile(err);
           done();
         });
     });
@@ -459,6 +499,7 @@ describe('request(app)', function () {
         .expect('hey')
         .end(function (err, res) {
           err.message.should.equal('expected 200 "OK", got 500 "Internal Server Error"');
+          shouldIncludeStackWithThisFile(err);
           done();
         });
     });
@@ -491,6 +532,7 @@ describe('request(app)', function () {
         .expect({ foo: 'baz' })
         .end(function (err, res) {
           err.message.should.equal('expected { foo: \'baz\' } response body, got { foo: \'bar\' }');
+          shouldIncludeStackWithThisFile(err);
 
           request(app)
             .get('/')
@@ -521,7 +563,8 @@ describe('request(app)', function () {
         .get('/')
         .expect({ stringValue: 'foo', numberValue: 3, nestedObject: { innerString: 5 } })
         .end(function (err, res) {
-          err.message.should.equal('expected { stringValue: \'foo\',\n  numberValue: 3,\n  nestedObject: { innerString: 5 } } response body, got { stringValue: \'foo\',\n  numberValue: 3,\n  nestedObject: { innerString: \'5\' } }'); // eslint-disable-line max-len
+          err.message.replace(/[^a-zA-Z]/g, '').should.equal('expected {\n  stringValue: \'foo\',\n  numberValue: 3,\n  nestedObject: { innerString: 5 }\n} response body, got {\n  stringValue: \'foo\',\n  numberValue: 3,\n  nestedObject: { innerString: \'5\' }\n}'.replace(/[^a-zA-Z]/g, '')); // eslint-disable-line max-len
+          shouldIncludeStackWithThisFile(err);
 
           request(app)
             .get('/')
@@ -542,6 +585,7 @@ describe('request(app)', function () {
         .expect(/^bar/)
         .end(function (err, res) {
           err.message.should.equal('expected body \'foobar\' to match /^bar/');
+          shouldIncludeStackWithThisFile(err);
           done();
         });
     });
@@ -560,6 +604,7 @@ describe('request(app)', function () {
         .expect('hey tj')
         .end(function (err, res) {
           err.message.should.equal("expected 'hey' response body, got 'hey tj'");
+          shouldIncludeStackWithThisFile(err);
           done();
         });
     });
@@ -592,6 +637,7 @@ describe('request(app)', function () {
         .expect('Content-Foo', 'bar')
         .end(function (err, res) {
           err.message.should.equal('expected "Content-Foo" header field');
+          shouldIncludeStackWithThisFile(err);
           done();
         });
     });
@@ -609,6 +655,7 @@ describe('request(app)', function () {
         .end(function (err, res) {
           err.message.should.equal('expected "Content-Type" of "text/html", '
             + 'got "application/json; charset=utf-8"');
+          shouldIncludeStackWithThisFile(err);
           done();
         });
     });
@@ -640,6 +687,7 @@ describe('request(app)', function () {
         .end(function (err) {
           err.message.should.equal('expected "Content-Type" matching /^application/, '
             + 'got "text/html; charset=utf-8"');
+          shouldIncludeStackWithThisFile(err);
           done();
         });
     });
@@ -656,6 +704,7 @@ describe('request(app)', function () {
         .expect('Content-Length', 4)
         .end(function (err) {
           err.message.should.equal('expected "Content-Length" of "4", got "3"');
+          shouldIncludeStackWithThisFile(err);
           done();
         });
     });
@@ -682,6 +731,7 @@ describe('request(app)', function () {
           })
           .end(function (err) {
             err.message.should.equal('failed');
+            shouldIncludeStackWithThisFile(err);
             done();
           });
       });
@@ -707,6 +757,7 @@ describe('request(app)', function () {
           })
           .end(function (err) {
             err.message.should.equal('some descriptive error');
+            shouldIncludeStackWithThisFile(err);
             (err instanceof Error).should.be.true;
             done();
           });
@@ -716,6 +767,18 @@ describe('request(app)', function () {
         get
           .expect(function (res) {
           })
+          .end(done);
+      });
+
+      it("doesn't create false negatives on non error objects", function (done) {
+        const handler = {
+          get: function(target, prop, receiver) {
+            throw Error('Should not be called for non Error objects');
+          }
+        };
+        const proxy = new Proxy({}, handler); // eslint-disable-line no-undef
+        get
+          .expect(() => proxy)
           .end(done);
       });
 
@@ -747,6 +810,7 @@ describe('request(app)', function () {
           .expect('Content-Type', /json/)
           .end(function (err) {
             err.message.should.match(/Content-Type/);
+            shouldIncludeStackWithThisFile(err);
             done();
           });
       });
@@ -790,6 +854,7 @@ describe('request(app)', function () {
           .end(function (err) {
             err.message.should.equal('expected "Content-Type" matching /bloop/, '
               + 'got "text/html; charset=utf-8"');
+            shouldIncludeStackWithThisFile(err);
             done();
           });
       });
@@ -808,6 +873,7 @@ describe('request(app)', function () {
           .end(function (err) {
             err.message.should.equal('expected "Content-Type" matching /bloop/, '
               + 'got "text/html; charset=utf-8"');
+            shouldIncludeStackWithThisFile(err);
             done();
           });
       });
@@ -826,6 +892,7 @@ describe('request(app)', function () {
           .end(function (err) {
             err.message.should.equal('expected "Content-Type" matching /bloop/, '
               + 'got "text/html; charset=utf-8"');
+            shouldIncludeStackWithThisFile(err);
             done();
           });
       });
@@ -880,14 +947,15 @@ describe('agent.host(host)', function () {
     const agent = request.agent(app);
 
     app.get('/', function (req, res) {
-      res.send();
+      res.send({ hostname: req.hostname });
     });
 
     agent
       .host('something.test')
       .get('/')
       .end(function (err, res) {
-        err.hostname.should.equal('something.test');
+        if (err) return done(err);
+        res.body.hostname.should.equal('something.test');
         done();
       });
   });
@@ -983,6 +1051,7 @@ describe('assert ordering by call order', function () {
       .end(function (err, res) {
         err.message.should.equal('expected \'hey\' response body, '
           + 'got \'{"message":"something went wrong"}\'');
+        shouldIncludeStackWithThisFile(err);
         done();
       });
   });
@@ -1002,6 +1071,7 @@ describe('assert ordering by call order', function () {
       .expect('hey')
       .end(function (err, res) {
         err.message.should.equal('expected 200 "OK", got 500 "Internal Server Error"');
+        shouldIncludeStackWithThisFile(err);
         done();
       });
   });
@@ -1022,6 +1092,7 @@ describe('assert ordering by call order', function () {
       .end(function (err, res) {
         err.message.should.equal('expected "content-type" matching /html/, '
           + 'got "application/json; charset=utf-8"');
+        shouldIncludeStackWithThisFile(err);
         done();
       });
   });
@@ -1194,6 +1265,7 @@ describe('request.get(url).query(vals) works as expected', function () {
       .end(function (err, res) {
         err.should.be.an.instanceof(Error);
         err.message.should.match(/Nock: Disallowed net connect/);
+        shouldIncludeStackWithThisFile(err);
         done();
       });
 
